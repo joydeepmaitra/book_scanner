@@ -12,10 +12,20 @@
   
   <script>
     function openGoogleLens() {
-      // This intent attempts to launch the standalone Google Lens app.
-      // The fallback URL (S.browser_fallback_url) points to https://lens.google.com.
-      window.location.href =
-        "intent://scan/#Intent;action=com.google.android.apps.lens.action.LENS;package=com.google.android.apps.lens;S.browser_fallback_url=https%3A%2F%2Flens.google.com;end";
+      // Define the intent URL.
+      // Adding scheme=android-app may help some browsers recognize the intent.
+      var lensIntent = "intent://scan/#Intent;action=com.google.android.apps.lens.action.LENS;scheme=android-app;package=com.google.android.apps.lens;S.browser_fallback_url=https%3A%2F%2Flens.google.com;end";
+      
+      // Create a hidden iframe to trigger the intent.
+      var iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = lensIntent;
+      document.body.appendChild(iframe);
+      
+      // Remove the iframe after a short delay.
+      setTimeout(function(){
+        document.body.removeChild(iframe);
+      }, 2000);
     }
     
     async function sendToSheets(title, author) {
