@@ -4,6 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book Scanner (Local)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <script src="https://docs.opencv.org/master/opencv.js"></script>
 </head>
 <body>
     <h1>Scan Book Cover (Offline)</h1>
@@ -50,18 +51,29 @@
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Apply advanced preprocessing
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const pixels = imageData.data;
-        for (let i = 0; i < pixels.length; i += 4) {
-            let avg = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-            avg = avg > 150 ? 255 : 0; // Adaptive thresholding for text clarity
-            pixels[i] = pixels[i + 1] = pixels[i + 2] = avg;
-        }
-        context.putImageData(imageData, 0, 0);
-        
-        const processedImage = canvas.toDataURL('image/png');
+        let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        let processedImage = preprocessImage(imageData);
         processImage(processedImage);
+    }
+
+    function preprocessImage(imageData) {
+        let src = cv.matFromImageData(imageData);
+        let dst = new cv.Mat();
+        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY); // Convert to grayscale
+        cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT); // Reduce noise
+        cv.adaptiveThreshold(dst, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2); // Improve contrast
+        cv.Canny(dst, dst, 50, 200); // Apply edge detection
+        
+        let processedCanvas = document.createElement("canvas");
+        processedCanvas.width = dst.cols;
+        processedCanvas.height = dst.rows;
+        let processedCtx = processedCanvas.getContext("2d");
+        let processedImageData = new ImageData(new Uint8ClampedArray(dst.data), dst.cols, dst.rows);
+        processedCtx.putImageData(processedImageData, 0, 0);
+        
+        src.delete();
+        dst.delete();
+        return processedCanvas.toDataURL('image/png');
     }
 
     function processImage(imageData) {
@@ -70,8 +82,8 @@
             'eng',
             {
                 logger: m => console.log(m),
-                tessedit_pageseg_mode: 3, // Auto-detect text blocks
-                oem: 1 // Use LSTM OCR model
+                tessedit_pageseg_mode: 6, // Detect text blocks better
+                oem: 1 // Use deep learning OCR
             }
         ).then(({ data: { text } }) => {
             const lines = text.split('\n').map(line => line.trim()).filter(line => line);
@@ -121,23 +133,6 @@
             row.insertCell(0).innerText = book.title;
             row.insertCell(1).innerText = book.author;
         });
-    }
-    
-    function exportCSV() {
-        const rows = document.querySelectorAll("#bookTable tr");
-        let csvContent = "data:text/csv;charset=utf-8,";
-        rows.forEach(row => {
-            const cols = row.querySelectorAll("td, th");
-            const rowData = [];
-            cols.forEach(col => rowData.push(col.innerText));
-            csvContent += rowData.join(",") + "\n";
-        });
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "books.csv");
-        document.body.appendChild(link);
-        link.click();
     }
     
     document.addEventListener("DOMContentLoaded", () => {
