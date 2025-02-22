@@ -50,8 +50,18 @@
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        const imageData = canvas.toDataURL('image/png');
-        processImage(imageData);
+        // Convert image to grayscale and increase contrast
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+        for (let i = 0; i < pixels.length; i += 4) {
+            let avg = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+            avg = avg > 128 ? 255 : 0; // Binarization (high contrast)
+            pixels[i] = pixels[i + 1] = pixels[i + 2] = avg;
+        }
+        context.putImageData(imageData, 0, 0);
+        
+        const processedImage = canvas.toDataURL('image/png');
+        processImage(processedImage);
     }
 
     function processImage(imageData) {
