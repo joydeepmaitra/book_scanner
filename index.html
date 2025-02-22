@@ -50,12 +50,12 @@
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Convert image to grayscale and increase contrast
+        // Apply advanced preprocessing
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
         const pixels = imageData.data;
         for (let i = 0; i < pixels.length; i += 4) {
             let avg = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-            avg = avg > 128 ? 255 : 0; // Binarization (high contrast)
+            avg = avg > 150 ? 255 : 0; // Adaptive thresholding for text clarity
             pixels[i] = pixels[i + 1] = pixels[i + 2] = avg;
         }
         context.putImageData(imageData, 0, 0);
@@ -70,7 +70,8 @@
             'eng',
             {
                 logger: m => console.log(m),
-                tessedit_pageseg_mode: 6  // Improves structured text recognition
+                tessedit_pageseg_mode: 3, // Auto-detect text blocks
+                oem: 1 // Use LSTM OCR model
             }
         ).then(({ data: { text } }) => {
             const lines = text.split('\n').map(line => line.trim()).filter(line => line);
