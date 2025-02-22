@@ -12,8 +12,13 @@
     
     <script>
         function openGoogleLens() {
-            // Open Google Lens without redirecting to Play Store
-            window.location.href = "googleapp://lens";
+            if (navigator.userAgent.toLowerCase().includes("android")) {
+                // Android: Use intent URL
+                window.location.href = "intent://lens.google.com/#Intent;scheme=https;package=com.google.ar.lens;end;";
+            } else {
+                // iPhone & Other Devices: Use Lens Web Link
+                window.location.href = "https://lens.google.com/upload";
+            }
         }
         
         async function sendToSheets(title, author) {
