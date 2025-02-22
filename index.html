@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,126 +10,130 @@
     <video id="camera" autoplay playsinline></video>
     <button onclick="captureImage()">Capture Image</button>
     <canvas id="canvas" style="display:none;"></canvas>
-    <p id="error-message" style="color:red;"></p>
+    <p id="error-message" style="color:red;"></p><h2>Extracted Book Details</h2>
+<input type="text" id="title" placeholder="Book Title" readonly>
+<input type="text" id="author" placeholder="Author Name" readonly>
+<button onclick="saveBook()">Save to Table</button>
+
+<h2>Book List</h2>
+<table border="1" id="bookTable">
+    <tr><th>Title</th><th>Author</th></tr>
+</table>
+<button onclick="exportCSV()">Export as CSV</button>
+
+<script>
+    let videoStream;
     
-    <h2>Extracted Book Details</h2>
-    <input type="text" id="title" placeholder="Book Title" readonly>
-    <input type="text" id="author" placeholder="Author Name" readonly>
-    <button onclick="saveBook()">Save to Table</button>
-    
-    <h2>Book List</h2>
-    <table border="1" id="bookTable">
-        <tr><th>Title</th><th>Author</th></tr>
-    </table>
-    <button onclick="exportCSV()">Export as CSV</button>
-    
-    <script>
-        let videoStream;
+    async function startCamera() {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("Camera access is not supported on this device/browser.");
+            }
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            document.getElementById('camera').srcObject = videoStream;
+        } catch (error) {
+            document.getElementById('error-message').innerText = "Camera access denied or unavailable: " + error.message;
+            console.error("Camera error:", error);
+        }
+    }
+
+    function captureImage() {
+        if (!videoStream) {
+            alert("Camera not initialized. Try refreshing the page and allowing camera access.");
+            return;
+        }
         
-        async function startCamera() {
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Camera access is not supported on this device/browser.");
-                }
-                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                document.getElementById('camera').srcObject = videoStream;
-            } catch (error) {
-                document.getElementById('error-message').innerText = "Camera access denied or unavailable: " + error.message;
-                console.error("Camera error:", error);
-            }
-        }
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = canvas.toDataURL('image/png');
+        processImage(imageData);
+    }
 
-        function captureImage() {
-            if (!videoStream) {
-                alert("Camera not initialized. Try refreshing the page and allowing camera access.");
-                return;
+    function processImage(imageData) {
+        Tesseract.recognize(
+            imageData,
+            'eng',
+            {
+                logger: m => console.log(m),
+                tessedit_pageseg_mode: 6  // Improves structured text recognition
             }
-            
-            const video = document.getElementById('camera');
-            const canvas = document.getElementById('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            const imageData = canvas.toDataURL('image/png');
-            processImage(imageData);
-        }
-
-        function processImage(imageData) {
-            Tesseract.recognize(
-                imageData,
-                'eng',
-                {
-                    logger: m => console.log(m)
-                }
-            ).then(({ data: { text } }) => {
-                const lines = text.split('\n');
+        ).then(({ data: { text } }) => {
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+            if (lines.length > 1) {
                 document.getElementById('title').value = lines[0] || "";
                 document.getElementById('author').value = lines[1] || "";
-            });
+            } else {
+                document.getElementById('title').value = text || "Text not recognized, try again.";
+            }
+        });
+    }
+    
+    function saveBook() {
+        const title = document.getElementById('title').value;
+        const author = document.getElementById('author').value;
+        
+        if (!title || !author) {
+            alert("No extracted data available!");
+            return;
         }
         
-        function saveBook() {
-            const title = document.getElementById('title').value;
-            const author = document.getElementById('author').value;
-            
-            if (!title || !author) {
-                alert("No extracted data available!");
-                return;
-            }
-            
+        const table = document.getElementById('bookTable');
+        const row = table.insertRow(-1);
+        row.insertCell(0).innerText = title;
+        row.insertCell(1).innerText = author;
+        
+        saveToLocalStorage();
+    }
+    
+    function saveToLocalStorage() {
+        const books = [];
+        const rows = document.querySelectorAll("#bookTable tr:not(:first-child)");
+        rows.forEach(row => {
+            books.push({
+                title: row.cells[0].innerText,
+                author: row.cells[1].innerText
+            });
+        });
+        localStorage.setItem("bookList", JSON.stringify(books));
+    }
+    
+    function loadFromLocalStorage() {
+        const books = JSON.parse(localStorage.getItem("bookList")) || [];
+        books.forEach(book => {
             const table = document.getElementById('bookTable');
             const row = table.insertRow(-1);
-            row.insertCell(0).innerText = title;
-            row.insertCell(1).innerText = author;
-            
-            saveToLocalStorage();
-        }
-        
-        function saveToLocalStorage() {
-            const books = [];
-            const rows = document.querySelectorAll("#bookTable tr:not(:first-child)");
-            rows.forEach(row => {
-                books.push({
-                    title: row.cells[0].innerText,
-                    author: row.cells[1].innerText
-                });
-            });
-            localStorage.setItem("bookList", JSON.stringify(books));
-        }
-        
-        function loadFromLocalStorage() {
-            const books = JSON.parse(localStorage.getItem("bookList")) || [];
-            books.forEach(book => {
-                const table = document.getElementById('bookTable');
-                const row = table.insertRow(-1);
-                row.insertCell(0).innerText = book.title;
-                row.insertCell(1).innerText = book.author;
-            });
-        }
-        
-        function exportCSV() {
-            const rows = document.querySelectorAll("#bookTable tr");
-            let csvContent = "data:text/csv;charset=utf-8,";
-            rows.forEach(row => {
-                const cols = row.querySelectorAll("td, th");
-                const rowData = [];
-                cols.forEach(col => rowData.push(col.innerText));
-                csvContent += rowData.join(",") + "\n";
-            });
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "books.csv");
-            document.body.appendChild(link);
-            link.click();
-        }
-        
-        document.addEventListener("DOMContentLoaded", () => {
-            startCamera();
-            loadFromLocalStorage();
+            row.insertCell(0).innerText = book.title;
+            row.insertCell(1).innerText = book.author;
         });
-    </script>
+    }
+    
+    function exportCSV() {
+        const rows = document.querySelectorAll("#bookTable tr");
+        let csvContent = "data:text/csv;charset=utf-8,";
+        rows.forEach(row => {
+            const cols = row.querySelectorAll("td, th");
+            const rowData = [];
+            cols.forEach(col => rowData.push(col.innerText));
+            csvContent += rowData.join(",") + "\n";
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "books.csv");
+        document.body.appendChild(link);
+        link.click();
+    }
+    
+    document.addEventListener("DOMContentLoaded", () => {
+        startCamera();
+        loadFromLocalStorage();
+    });
+</script>
+
 </body>
 </html>
