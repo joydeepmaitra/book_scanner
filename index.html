@@ -1,79 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Book Scanner</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    video, canvas { max-width: 100%; border: 1px solid #ccc; }
-    #result { margin-top: 20px; }
-    button { font-size: 1.2em; padding: 10px; margin-top: 10px; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Scanner (Google Lens for Android)</title>
 </head>
 <body>
   <h1>Scan Book Cover</h1>
-  <video id="video" autoplay playsinline></video>
-  <br>
-  <button id="captureBtn">Capture & Process Image</button>
-  <canvas id="canvas" style="display:none;"></canvas>
-  <div id="result"></div>
-
-  <!-- Include Tesseract.js -->
-  <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
-  <!-- Include OpenCV.js -->
-  <script async src="https://docs.opencv.org/master/opencv.js" onload="onOpenCvReady();" ></script>
-
+  <button onclick="openGoogleLens()">Open Google Lens</button>
+  <p>After scanning, the extracted text will be sent to Google Sheets automatically.</p>
+  
   <script>
-    let opencvReady = false;
-    function onOpenCvReady() {
-      opencvReady = true;
-      console.log("OpenCV.js is ready.");
+    function openGoogleLens() {
+      // Use an Android intent deep link to launch Google Lens.
+      // This deep link will try to open Lens directly.
+      window.location.href = "intent://com.google.android.googlequicksearchbox/com.google.android.apps.gsa.staticplugins.lens.LensActivity#Intent;scheme=android-app;package=com.google.android.googlequicksearchbox;end";
     }
-
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const captureBtn = document.getElementById('captureBtn');
-    const resultDiv = document.getElementById('result');
-
-    // Initialize the camera stream.
-    async function initCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        video.srcObject = stream;
-      } catch (error) {
-        alert("Error accessing camera: " + error);
-      }
-    }
-
-    // Preprocess the captured image with OpenCV:
-    // Convert to grayscale, apply Gaussian blur, adaptive thresholding,
-    // and morphological opening to clean up background noise.
-    function preprocessImage() {
-      let src = cv.imread(canvas);
-      let gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-      let blurred = new cv.Mat();
-      cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-
-      let thresh = new cv.Mat();
-      cv.adaptiveThreshold(blurred, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
-
-      let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-      let opened = new cv.Mat();
-      cv.morphologyEx(thresh, opened, cv.MORPH_OPEN, kernel);
-
-      // Show the processed image on the canvas (for debugging, hidden from user)
-      cv.imshow(canvas, opened);
-
-      // Clean up.
-      src.delete(); gray.delete(); blurred.delete(); thresh.delete(); kernel.delete(); opened.delete();
-
-      return canvas.toDataURL("image/png");
-    }
-
-    // Send extracted book details to Google Sheets.
+    
     async function sendToSheets(title, author) {
       try {
         const response = await fetch('https://script.google.com/macros/s/AKfycbwN6jXYSbIrY6tYz1kh7JU_tXj61IShC8Kl_zoL_LiX3rGtLLPjZvMXZJ0tN8LTUPY/exec', {
@@ -81,56 +24,27 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, author })
         });
+        
         if (response.ok) {
           alert("Book added successfully!");
         } else {
           alert("Error saving book!");
         }
       } catch (error) {
-        console.error("Error sending data to Sheets:", error);
-        alert("Error sending data to Sheets.");
+        console.error("Error sending data:", error);
       }
     }
-
-    // Capture the current video frame, preprocess it, perform OCR,
-    // and then extract and send the title and author.
-    captureBtn.addEventListener('click', () => {
-      if (!opencvReady) {
-        alert("OpenCV is still loading. Please try again shortly.");
-        return;
-      }
-      // Draw the current video frame on the canvas.
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Preprocess image and get a data URL.
-      const processedImage = preprocessImage();
-
-      resultDiv.innerHTML = "<p>Processing OCR, please wait...</p>";
-
-      // Use Tesseract.js to extract text from the processed image.
-      Tesseract.recognize(processedImage, 'eng', { logger: m => console.log(m) })
-        .then(({ data: { text } }) => {
-          console.log("OCR result:", text);
-          // Split the OCR result into lines and assume first line is title, second is author.
-          const lines = text.split('\n').filter(line => line.trim() !== "");
-          const title = lines[0] || "Unknown Title";
-          const author = lines.length > 1 ? lines[1] : "Unknown Author";
-
-          resultDiv.innerHTML = `<p><strong>Title:</strong> ${title}</p>
-                                 <p><strong>Author:</strong> ${author}</p>`;
-          sendToSheets(title, author);
-        })
-        .catch(err => {
-          console.error("OCR error:", err);
-          resultDiv.innerHTML = `<p>Error during OCR: ${err.message}</p>`;
-        });
+    
+    // Listen for clipboard paste events.
+    // When Google Lens extracts text, it should be copied to the clipboard,
+    // triggering this event to send the data to Google Sheets.
+    document.addEventListener("paste", function(event) {
+      const text = event.clipboardData.getData("text");
+      const lines = text.split("\n");
+      const title = lines[0] || "Unknown Title";
+      const author = lines.length > 1 ? lines[1] : "Unknown Author";
+      sendToSheets(title, author);
     });
-
-    // Start camera on page load.
-    initCamera();
   </script>
 </body>
 </html>
