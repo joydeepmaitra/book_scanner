@@ -13,8 +13,8 @@
     <script>
         function openGoogleLens() {
             if (navigator.userAgent.toLowerCase().includes("android")) {
-                // Android: Use direct intent URL to open Google Lens without Play Store
-                window.location.href = "intent://lens.google.com/#Intent;action=android.intent.action.VIEW;category=android.intent.category.DEFAULT;package=com.google.ar.lens;end;";
+                // Try opening Google Lens directly via activity intent
+                window.location.href = "activity://com.google.android.googlequicksearchbox/com.google.android.apps.gsa.staticplugins.lens.LensActivity";
             } else {
                 // iPhone & Other Devices: Use Lens Web Link
                 window.location.href = "https://lens.google.com/upload";
