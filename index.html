@@ -12,9 +12,10 @@
   
   <script>
     function openGoogleLens() {
-      // Use an Android intent deep link to launch Google Lens.
-      // This deep link will try to open Lens directly.
-      window.location.href = "intent://com.google.android.googlequicksearchbox/com.google.android.apps.gsa.staticplugins.lens.LensActivity#Intent;scheme=android-app;package=com.google.android.googlequicksearchbox;end";
+      // This intent attempts to launch the standalone Google Lens app.
+      // The fallback URL (S.browser_fallback_url) points to https://lens.google.com.
+      window.location.href =
+        "intent://scan/#Intent;action=com.google.android.apps.lens.action.LENS;package=com.google.android.apps.lens;S.browser_fallback_url=https%3A%2F%2Flens.google.com;end";
     }
     
     async function sendToSheets(title, author) {
@@ -24,7 +25,6 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, author })
         });
-        
         if (response.ok) {
           alert("Book added successfully!");
         } else {
@@ -36,8 +36,6 @@
     }
     
     // Listen for clipboard paste events.
-    // When Google Lens extracts text, it should be copied to the clipboard,
-    // triggering this event to send the data to Google Sheets.
     document.addEventListener("paste", function(event) {
       const text = event.clipboardData.getData("text");
       const lines = text.split("\n");
