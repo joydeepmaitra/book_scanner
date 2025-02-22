@@ -1,48 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Book Scanner (Google Lens for Android)</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Scanner (Google Lens)</title>
 </head>
 <body>
-  <h1>Scan Book Cover</h1>
-  <button onclick="openGoogleLens()">Open Google Lens</button>
-  <p>After scanning, the extracted text will be sent to Google Sheets automatically.</p>
-  
-  <script>
-    function openGoogleLens() {
-      // This intent attempts to launch the standalone Google Lens app.
-      // The fallback URL (S.browser_fallback_url) points to https://lens.google.com.
-      window.location.href =
-        "intent://scan/#Intent;action=com.google.android.apps.lens.action.LENS;package=com.google.android.apps.lens;S.browser_fallback_url=https%3A%2F%2Flens.google.com;end";
-    }
+    <h1>Scan Book Cover</h1>
+    <button onclick="openGoogleLens()">Open Google Lens</button>
+    <p>After scanning, the extracted text will be sent to Google Sheets automatically.</p>
     
-    async function sendToSheets(title, author) {
-      try {
-        const response = await fetch('https://script.google.com/macros/s/AKfycbwN6jXYSbIrY6tYz1kh7JU_tXj61IShC8Kl_zoL_LiX3rGtLLPjZvMXZJ0tN8LTUPY/exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, author })
-        });
-        if (response.ok) {
-          alert("Book added successfully!");
-        } else {
-          alert("Error saving book!");
+    <script>
+        function openGoogleLens() {
+            if (navigator.userAgent.toLowerCase().includes("android")) {
+                // Try opening Google Lens directly via activity intent
+                window.location.href = "activity://com.google.android.googlequicksearchbox/com.google.android.apps.gsa.staticplugins.lens.LensActivity";
+            } else {
+                // iPhone & Other Devices: Use Lens Web Link
+                window.location.href = "https://lens.google.com/upload";
+            }
         }
-      } catch (error) {
-        console.error("Error sending data:", error);
-      }
-    }
-    
-    // Listen for clipboard paste events.
-    document.addEventListener("paste", function(event) {
-      const text = event.clipboardData.getData("text");
-      const lines = text.split("\n");
-      const title = lines[0] || "Unknown Title";
-      const author = lines.length > 1 ? lines[1] : "Unknown Author";
-      sendToSheets(title, author);
-    });
-  </script>
+        
+        async function sendToSheets(title, author) {
+            const response = await fetch('https://script.google.com/macros/s/AKfycbwN6jXYSbIrY6tYz1kh7JU_tXj61IShC8Kl_zoL_LiX3rGtLLPjZvMXZJ0tN8LTUPY/exec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, author })
+            });
+            
+            if (response.ok) {
+                alert("Book added successfully!");
+            } else {
+                alert("Error saving book!");
+            }
+        }
+
+        // Auto-copy Google Lens extracted text
+        document.addEventListener("paste", function(event) {
+            let text = event.clipboardData.getData("text");
+            let lines = text.split("\n");
+            let title = lines[0] || "Unknown Title";
+            let author = lines.length > 1 ? lines[1] : "Unknown Author";
+            sendToSheets(title, author);
+        });
+    </script>
 </body>
 </html>
